@@ -63,6 +63,23 @@ Image recv_image(int fd) {
     return img;
 }
 
+// Entradas: la imagen a guardar y la ruta del archivo destino
+// Salidas: ninguna
+// Descripcion: crea el archivo binario y escribe el width, el height (4 bytes cada uno) y luego todos los pixels
+void write_image(Image img, const char *path) {
+    FILE *file = fopen(path, "wb");
+    if (!file) {
+        fprintf(stderr, "Error al crear el archivo: %s\n", path);
+        exit(EXIT_FAILURE);
+    }
+
+    fwrite(&img.width, sizeof(int), 1, file);
+    fwrite(&img.height, sizeof(int), 1, file);
+    fwrite(img.pixels, sizeof(uint8_t), img.width * img.height, file);
+
+    fclose(file);
+}
+
 // Entradas: imagen a liberar
 // Salidas: ninguna
 // Descripcion: libera la memoria del arreglo de pixels

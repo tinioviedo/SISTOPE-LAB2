@@ -20,6 +20,11 @@ void send_image(Image img, int fd);
 // Descripcion: lee del descriptor el width, el height y los pixels, reconstruyendo la imagen que mando el proceso anterior
 Image recv_image(int fd);
 
+// Entradas: la imagen a guardar y la ruta del archivo destino
+// Salidas: ninguna
+// Descripcion: escribe la imagen en formato .bin (el width, el height y luego todos los pixels), el mismo formato que se usa para leerla
+void write_image(Image img, const char *path);
+
 // Entradas: imagen a liberar
 // Salidas: ninguna
 // Descripcion: libera la memoria del arreglo de pixels reservada con malloc
