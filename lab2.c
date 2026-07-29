@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>   // getopt
+#include <unistd.h>   // getopt, fork, execv
 #include <errno.h>
 #include <limits.h>
+#include <sys/wait.h> // wait, para esperar al proceso hijo
 
 // Entradas: cadena s (el argumento de un flag) y puntero out donde se deja el resultado
 // Salidas: 1 si s es un entero positivo (lo guarda en out), 0 si no lo es
@@ -35,8 +36,8 @@ static void uso(const char *prog) {
 }
 
 // Entradas: argc y argv de la linea de comandos
-// Salidas: 0 si los parametros son validos, termina con EXIT_FAILURE si hay algun error
-// Descripcion: nodo raiz del pipeline. Por ahora solo lee y valida los flags con getopt. En el paso 2 este main lanzara el primer proceso del pipeline (cargaDatos)
+// Salidas: 0 si todo salio bien, termina con EXIT_FAILURE si hay algun error
+// Descripcion: nodo raiz del pipeline. Lee y valida los flags con getopt y luego lanza el primer nodo (cargaDatos) con fork y execv, esperando a que termine
 int main(int argc, char *argv[]) {
     char *input_path = NULL;            // -i (obligatorio)
     char *output_path = "reporte.csv";  // -o (opcional, este es su default)
@@ -89,14 +90,40 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // parametros se leyeron y validaron bien
-    printf("Configuracion leida correctamente:\n");
-    printf("  -i (entrada)  : %s\n", input_path);
-    printf("  -r (radio)    : %d\n", radius);
-    printf("  -t (umbral)   : %d\n", threshold);
-    printf("  -v (vecindad) : %d\n", vecindad);
-    printf("  -o (salida)   : %s\n", output_path);
-    printf("  -d (debug)    : %s\n", debug ? "activado" : "desactivado");
+    // se arma el arreglo de argumentos para cargaDatos. se pasan todos los flags porque los nodos siguientes tambien los necesitan
+    char radio_str[16], umbral_str[16], vecindad_str[16];
+    snprintf(radio_str, sizeof(radio_str), "%d", radius);
+    snprintf(umbral_str, sizeof(umbral_str), "%d", threshold);
+    snprintf(vecindad_str, sizeof(vecindad_str), "%d", vecindad);
+
+    char *args[16];
+    int n = 0;
+    args[n++] = "./cargaDatos";
+    args[n++] = "-i"; args[n++] = input_path;
+    args[n++] = "-r"; args[n++] = radio_str;
+    args[n++] = "-t"; args[n++] = umbral_str;
+    args[n++] = "-v"; args[n++] = vecindad_str;
+    args[n++] = "-o"; args[n++] = output_path;
+    if (debug) args[n++] = "-d"; // el flag -d no lleva valor
+    args[n] = NULL;              // execv necesita que el arreglo termine en NULL
+
+    // fork clona el proceso: el hijo se convertira en cargaDatos y el padre (lab2) lo espera
+    pid_t pid = fork();
+    if (pid < 0) {
+        fprintf(stderr, "Error: no se pudo crear el proceso con fork\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid == 0) {
+        // proceso hijo: reemplaza su programa por cargaDatos
+        execv("./cargaDatos", args);
+        // si execv retorna es porque fallo (por ejemplo no encontro el ejecutable)
+        fprintf(stderr, "Error: no se pudo ejecutar cargaDatos con execv\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // proceso padre (lab2): espera a que el hijo termine
+    wait(NULL);
 
     return 0;
 }
