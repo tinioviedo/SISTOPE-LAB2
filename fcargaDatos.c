@@ -28,10 +28,3 @@ Image read_image(const char *path) {
     fclose(file);
     return img;
 }
-
-// Entradas: imagen a liberar
-// Salidas: ninguna
-// Descripcion: libera la memoria del arreglo de pixels reservada con malloc
-void free_image(Image img) {
-    free(img.pixels);
-}
