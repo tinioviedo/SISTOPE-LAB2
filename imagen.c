@@ -86,3 +86,32 @@ void write_image(Image img, const char *path) {
 void free_image(Image img) {
     free(img.pixels);
 }
+
+// Entradas: arreglo de enteros, su width y height, y un descriptor de escritura
+// Salidas: ninguna
+// Descripcion: manda por el descriptor primero el width, luego el height y por ultimo los width*height enteros (el acumulador de Hough)
+void send_int_array(int *data, int width, int height, int fd) {
+    write_full(fd, &width, sizeof(int));
+    write_full(fd, &height, sizeof(int));
+    write_full(fd, data, width * height * sizeof(int));
+}
+
+// Entradas: un descriptor de lectura y punteros donde dejar el width y height recibidos
+// Salidas: arreglo de enteros reconstruido con memoria propia en el heap
+// Descripcion: lee el width, el height y los enteros desde el descriptor y arma de vuelta el arreglo que mando el proceso anterior
+int *recv_int_array(int fd, int *out_width, int *out_height) {
+    int width, height;
+    read_full(fd, &width, sizeof(int));
+    read_full(fd, &height, sizeof(int));
+
+    int *data = (int *)malloc((size_t)width * height * sizeof(int));
+    if (!data) {
+        fprintf(stderr, "Error al reservar memoria para el arreglo de enteros\n");
+        exit(EXIT_FAILURE);
+    }
+
+    read_full(fd, data, width * height * sizeof(int));
+    *out_width = width;
+    *out_height = height;
+    return data;
+}
