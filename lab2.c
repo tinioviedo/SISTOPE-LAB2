@@ -90,6 +90,12 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    // verificar que el archivo de entrada exista y se pueda leer, antes de lanzar todo el pipeline
+    if (access(input_path, R_OK) != 0) {
+        fprintf(stderr, "Error: -i no se pudo abrir el archivo de entrada: %s\n", input_path);
+        exit(EXIT_FAILURE);
+    }
+
     // se arma el arreglo de argumentos para cargaDatos. se pasan todos los flags porque los nodos siguientes tambien los necesitan
     char radio_str[16], umbral_str[16], vecindad_str[16];
     snprintf(radio_str, sizeof(radio_str), "%d", radius);

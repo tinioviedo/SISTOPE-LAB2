@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
+#include <limits.h>
 
 // Entradas: descriptor de escritura, buffer origen y cantidad de bytes n
 // Salidas: ninguna
@@ -114,4 +116,18 @@ int *recv_int_array(int fd, int *out_width, int *out_height) {
     *out_width = width;
     *out_height = height;
     return data;
+}
+
+// Entradas: cadena a validar y puntero donde dejar el resultado
+// Salidas: 1 si s es un entero positivo (lo guarda en out), 0 si no lo es
+// Descripcion: convierte s a entero con strtol y rechaza texto sobrante (ej "4.5"), cadenas vacias y valores <= 0, asi no se acepta algo que atoi() truncaria en silencio (por ejemplo atoi("abc") devuelve 0 sin avisar)
+int parse_entero_positivo(const char *s, int *out) {
+    if (s == NULL || *s == '\0') return 0;
+    errno = 0;
+    char *fin;
+    long v = strtol(s, &fin, 10);
+    if (errno != 0 || *fin != '\0') return 0;
+    if (v <= 0 || v > INT_MAX) return 0;
+    *out = (int)v;
+    return 1;
 }

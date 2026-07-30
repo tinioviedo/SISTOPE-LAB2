@@ -40,4 +40,9 @@ int *recv_int_array(int fd, int *out_width, int *out_height);
 // Descripcion: libera la memoria del arreglo de pixels reservada con malloc
 void free_image(Image img);
 
+// Entradas: cadena a validar (el argumento de un flag numerico) y puntero donde dejar el resultado
+// Salidas: 1 si s es un entero positivo valido (lo deja en out), 0 si no lo es
+// Descripcion: usa strtol para rechazar texto sobrante (ej "4.5"), cadenas vacias, no numericas y valores <= 0, evitando que atoi() convierta silenciosamente una entrada invalida en 0. La usan los nodos que reciben flags numericos (-r, -t, -v) para validar por si se ejecutan de forma independiente, sin pasar por lab2
+int parse_entero_positivo(const char *s, int *out);
+
 #endif

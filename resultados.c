@@ -15,8 +15,19 @@ int main(int argc, char *argv[]) {
     int opt;
     while ((opt = getopt(argc, argv, "i:r:t:v:o:d")) != -1) {
         switch (opt) {
-            case 't': threshold = atoi(optarg); break;
-            case 'v': vecindad = atoi(optarg); break;
+            case 't':
+                if (!parse_entero_positivo(optarg, &threshold)) {
+                    fprintf(stderr, "resultados: -t (umbral) debe ser un entero positivo. Recibido: %s\n", optarg);
+                    exit(EXIT_FAILURE);
+                }
+                break;
+            case 'v':
+                // debe ser positivo y ademas impar, para que la vecindad tenga un centro exacto
+                if (!parse_entero_positivo(optarg, &vecindad) || (vecindad % 2) == 0) {
+                    fprintf(stderr, "resultados: -v (vecindad) debe ser un entero impar >= 1. Recibido: %s\n", optarg);
+                    exit(EXIT_FAILURE);
+                }
+                break;
             case 'o': output_path = optarg; break;
             default: break; // los demas flags (-i, -r, -d) no le sirven a este nodo
         }

@@ -13,7 +13,12 @@ int main(int argc, char *argv[]) {
 
     int opt;
     while ((opt = getopt(argc, argv, "i:r:t:v:o:d")) != -1) {
-        if (opt == 'r') radius = atoi(optarg);
+        if (opt == 'r') {
+            if (!parse_entero_positivo(optarg, &radius)) {
+                fprintf(stderr, "tHough: -r (radio) debe ser un entero positivo. Recibido: %s\n", optarg);
+                exit(EXIT_FAILURE);
+            }
+        }
     }
 
     // recibe la preprocesada por stdin (el pipe que dejo conectado aDeRuido)
