@@ -1,0 +1,134 @@
+Laboratorio 2 - Sistemas Operativos
+Pipeline de Deteccion de Circulos mediante Transformada de Hough y Morfologia Matematica
+
+Integrantes: Martin Oviedo, Johanny Simken
+
+
+1. Descripcion
+---------------
+El programa procesa una imagen binaria (.bin) y detecta circulos de un radio fijo r,
+usando un pipeline de 6 procesos comunicados por pipes (fork + pipe + execv + dup2):
+
+    lab2 -> cargaDatos -> preprocesamiento -> aDeRuido -> tHough -> resultados
+
+  - lab2:             valida los flags con getopt y lanza cargaDatos.
+  - cargaDatos:       lee el archivo .bin de entrada.
+  - preprocesamiento: aplica una apertura (erosion + dilatacion, SE en cruz 3x3) para
+                       limpiar el ruido de sal.
+  - aDeRuido:         calcula el ruido eliminado (original - preprocesada) y, con -d,
+                       exporta preprocesada.bin y ruido.bin.
+  - tHough:           aplica la Transformada de Hough (720 pasos de theta) sobre la
+                       preprocesada y arma el acumulador de votos para el radio r.
+  - resultados:       aplica supresion de no-maximos (vecindad v x v) sobre el acumulador
+                       y escribe en el csv los centros cuyos votos superan el umbral t.
+
+
+2. Compilacion
+---------------
+    make
+
+Genera los 6 ejecutables: lab2, cargaDatos, preprocesamiento, aDeRuido, tHough, resultados.
+
+    make clean
+
+Elimina los ejecutables.
+
+
+3. Ejecucion
+-------------
+    ./lab2 -i <entrada.bin> -r <radio> -t <umbral> [-v <vecindad>] [-o <salida.csv>] [-d]
+
+Flags:
+  -i  ruta del archivo .bin de entrada                          (obligatorio)
+  -r  radio (entero positivo) de los circulos a detectar        (obligatorio)
+  -t  umbral minimo de votos para aceptar un centro              (obligatorio)
+  -v  tamano de la vecindad para la supresion de no-maximos,
+      debe ser un entero impar >= 1                              (opcional, default 7)
+  -o  archivo de salida .csv                                     (opcional, default reporte.csv)
+  -d  activa el volcado de debug (preprocesada.bin y ruido.bin)
+
+Ejemplo:
+    ./lab2 -i entrada.bin -r 60 -t 70 -o reporte.csv
+
+
+4. Herramientas de apoyo
+-------------------------
+Se incluyen los scripts de apoyo entregados en el enunciado:
+
+  - GenerarDatos.py: genera imagenes .bin de prueba con circulos y ruido de sal.
+        python3 GenerarDatos.py -o prueba.bin -r 60 -g 3 -n 8 -p 0.01 -w 1024 -hi 1024
+
+  - Visualizer.py: convierte un .bin (entrada, preprocesada.bin o ruido.bin) a .png.
+        python3 Visualizer.py prueba.bin prueba.png
+
+  - VerificacionVisual.py: dibuja sobre la imagen original los centros del csv y,
+    con -s, el contorno del radio buscado.
+        python3 VerificacionVisual.py -i prueba.bin -c reporte.csv -r 60 -s -o verificacion.png
+
+
+5. Ejemplos con distintos radios y umbrales
+---------------------------------------------
+Se genero una imagen de prueba de 1024x1024 con GenerarDatos.py (-r 60 -g 3 -n 8 -p 0.01),
+que ademas de los 8 circulos de radio 60 agrega 4 circulos extra de radio aleatorio
+(entre 1.5x y 2x el radio pedido, comportamiento propio de GenerarDatos.py). Sobre esa
+imagen se corrio:
+
+    ./lab2 -i entrada.bin -r 60 -t 70 -d
+
+  cargaDatos: imagen cargada (1024 x 1024)
+  preprocesamiento: apertura lista (1024 x 1024)
+  aDeRuido: ruido calculado (1024 x 1024)
+  aDeRuido: debug activo -> escritos preprocesada.bin y ruido.bin
+  tHough: acumulador listo (1024 x 1024), max votos = 381
+
+a) Efecto del radio (-r): barriendo distintos radios sobre la misma imagen, el maximo
+   de votos del acumulador es claramente mas alto cuando -r coincide con el radio real
+   de los circulos:
+
+     r=20 -> max votos = 270      r=40 -> max votos = 328
+     r=60 -> max votos = 381 (radio real)
+     r=70 -> max votos ~ 250      r=80 -> max votos ~ 200
+
+b) Efecto del umbral (-t): con vecindad fija (-v 7), variar el umbral filtra el ruido
+   de fondo del acumulador. Con esta imagen, un umbral bajo (ej. 70-100) deja pasar
+   decenas de falsos centros; a partir de -t 250 el numero de centros detectados se
+   estabiliza en los circulos reales:
+
+     -t 100 -> 196 centros detectados
+     -t 150 ->  26 centros detectados
+     -t 250 ->  14 centros detectados (estable)
+     -t 350 ->  14 centros detectados
+
+c) Efecto de la vecindad (-v): con -t 250 fijo, una vecindad chica (default 7) no
+   siempre colapsa un circulo grueso a un solo centro (deja puntos duplicados muy
+   cercanos); subir la vecindad los une en un solo maximo:
+
+     -v  7 -> 14 centros (algunos duplicados muy cercanos)
+     -v 11 ->  9 centros (un centro por circulo de radio 60)
+     -v 15 a 25 -> 9 centros (estable)
+
+   Recomendacion: mientras mas grande el radio buscado, mayor conviene la vecindad,
+   ya que el "grosor" del pico de votos en el acumulador crece con el radio.
+
+Ejecucion final usada para generar el reporte.csv de este entregable:
+
+    ./lab2 -i entrada.bin -r 60 -t 250 -v 11 -o reporte.csv
+
+Se verifico visualmente con:
+
+    python3 VerificacionVisual.py -i entrada.bin -c reporte.csv -r 60 -s -o verificacion_final.png
+
+Los 9 centros detectados caen exactamente sobre los circulos de radio 60 de la imagen;
+los circulos de radio distinto (los "extra" de GenerarDatos.py) no se detectan, como
+se espera.
+
+
+6. Notas de implementacion
+----------------------------
+  - Los pixeles viajan entre procesos por los pipes (send_image/recv_image en imagen.c);
+    el acumulador de Hough (arreglo de int) viaja con send_int_array/recv_int_array,
+    misma logica pero para enteros en vez de bytes.
+  - Todos los mensajes de diagnostico se imprimen por stderr, nunca por stdout, porque
+    stdout transporta los datos binarios entre procesos.
+  - La supresion de no-maximos se calcula sobre una copia del acumulador (no se
+    modifica in-place) para no alterar los datos mientras se recorren.
